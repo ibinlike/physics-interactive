@@ -31,7 +31,7 @@
   .diagram-panel svg {
     display: block;
     width: 100%;
-    max-width: 560px;
+    max-width: 720px;
     height: auto;
     aspect-ratio: 560 / 500;
     margin: 0 auto;
@@ -148,6 +148,42 @@
   .answer-box .label { font-size: 13px; color: #8892b0; }
   .answer-box .value { font-size: 22px; color: #ffd700; font-weight: 700; margin-top: 4px; }
 
+  /* Control bar */
+  .control-bar { display: flex; gap: 10px; align-items: center; }
+  .btn-play {
+    flex: 1;
+    height: 44px;
+    background: #64ffda;
+    color: #1a1a2e;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-play:hover { filter: brightness(1.1); }
+  .btn-play.playing { background: #ffd700; }
+  .btn-reset {
+    height: 44px;
+    padding: 0 16px;
+    background: transparent;
+    color: #8892b0;
+    border: 1px solid #2a3a5c;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-reset:hover { border-color: #8892b0; color: #ccd6f6; }
+  .btn-reset.dimmed { opacity: 0.4; pointer-events: none; }
+  .control-hint {
+    font-size: 13px;
+    color: #8892b0;
+    text-align: center;
+    margin-top: 2px;
+  }
+
   /* Tooltip */
   .hint {
     font-size: 15px;
@@ -158,6 +194,10 @@
     border-radius: 8px;
     border: 1px solid rgba(100,255,218,0.15);
     line-height: 1.6;
+  }
+  .hint-gold {
+    background: rgba(255,215,0,0.06);
+    border-color: rgba(255,215,0,0.15);
   }
 
   /* Draggable cursor */
@@ -318,9 +358,12 @@
     半圆轨道碰撞
   </div>
 
-  <div class="hint">
-    拖动球A沿轨道，观察能量如何转化<br>
-    拖到顶部触发碰撞，显示完整解答
+  <div>
+    <div class="control-bar">
+      <button id="btnPlay" class="btn-play">▶ 播放</button>
+      <button id="btnReset" class="btn-reset dimmed">↺ 重来</button>
+    </div>
+    <div class="control-hint">拖动球A或点击播放</div>
   </div>
 
   <div class="slider-group">
@@ -374,26 +417,34 @@
     <span style="color:#ff9f43;" id="labelPE_html">势能 0.0J</span>
   </div>
 
-  <!-- Step 3: Collision -->
-  <div class="step active" id="step3">
-    <div class="step-label">③ 完全非弹性碰撞</div>
-    <div class="step-formula">m<sub>A</sub>v<sub>A</sub> = (m<sub>A</sub>+m<sub>B</sub>)v'</div>
-    <div class="step-result" data-physics-value="vPrime"></div>
-  </div>
+  <!-- Collision section: hidden until A reaches top -->
+  <div id="collisionSection" style="display:none; flex-direction:column; gap:14px;">
+    <!-- Step 3: Collision -->
+    <div class="step active" id="step3">
+      <div class="step-label">③ 完全非弹性碰撞</div>
+      <div class="step-formula">m<sub>A</sub>v<sub>A</sub> = (m<sub>A</sub>+m<sub>B</sub>)v'</div>
+      <div class="step-result" data-physics-value="vPrime"></div>
+    </div>
 
-  <!-- Step 4: Tension -->
-  <div class="step active" id="step4">
-    <div class="step-label">④ 最低点 → 绳拉力</div>
-    <div class="step-formula">T - (m<sub>A</sub>+m<sub>B</sub>)g = (m<sub>A</sub>+m<sub>B</sub>)v'²/R</div>
-    <div class="step-result" data-physics-value="T"></div>
-  </div>
+    <!-- Step 4: Tension -->
+    <div class="step active" id="step4">
+      <div class="step-label">④ 最低点 → 绳拉力</div>
+      <div class="step-formula">T - (m<sub>A</sub>+m<sub>B</sub>)g = (m<sub>A</sub>+m<sub>B</sub>)v'²/R</div>
+      <div class="step-result" data-physics-value="T"></div>
+    </div>
 
-  <!-- Answers -->
-  <div class="answer-box" id="answerBox">
-    <div class="label">(1) 碰撞瞬间 A 的速度</div>
-    <div class="value" data-physics-value="answer1"></div>
-    <div class="label" style="margin-top:10px">(2) 碰后绳的拉力</div>
-    <div class="value" data-physics-value="answer2"></div>
+    <!-- Answers -->
+    <div class="answer-box" id="answerBox">
+      <div class="label">(1) 碰撞瞬间 A 的速度</div>
+      <div class="value" data-physics-value="answer1"></div>
+      <div class="label" style="margin-top:10px">(2) 碰后绳的拉力</div>
+      <div class="value" data-physics-value="answer2"></div>
+    </div>
+
+    <!-- Exploration prompt (shown after collision) -->
+    <div id="exploreHint" class="hint hint-gold" style="display:none;">
+      调整滑块改变参数，再点播放 — 观察答案如何变化
+    </div>
   </div>
 </div>
 
@@ -423,6 +474,11 @@ function getTrackPoint(theta) {
 let params = { I: 1.8, mA: 0.3, mB: 0.1, R: 0.5 };
 let ballA_theta = 0; // A starts at bottom
 let dragging = null;
+let animState = 'idle'; // idle | playing | paused | arrived
+let animId = null;
+let animStart = null;
+let animFrom = 0;
+let prevAtTop = false; // for collision pop detection
 
 // DOM refs
 const svg = document.getElementById('scene');
@@ -457,10 +513,14 @@ function compute() {
   const vPrime = canReachTop ? (mA * vA) / M : 0;
   const T = canReachTop ? M * g + M * vPrime * vPrime / R : 0;
 
-  // Is A at/near the top?
-  const atTop = ballA_theta > Math.PI * 0.95;
+  // Is A at/near the top AND has enough energy?
+  const atTop = ballA_theta > Math.PI * 0.95 && canReachTop;
 
-  return { v0, vCurrent, KE, PE, totalE, hCurrent, canBeHere, vA, vA_sq, vPrime, T, canReachTop, atTop };
+  // Error guidance values
+  const I_min = mA * Math.sqrt(2 * g * 2 * R);
+  const maxH = v0 * v0 / (2 * g);
+
+  return { v0, vCurrent, KE, PE, totalE, hCurrent, canBeHere, vA, vA_sq, vPrime, T, canReachTop, atTop, I_min, maxH };
 }
 
 // Render everything
@@ -539,7 +599,7 @@ function render() {
   }
 
   // Ball A, B, and merged ball — show merged at top (collision state)
-  const atTop = phys.atTop && phys.canReachTop;
+  const atTop = phys.atTop;
   const ballAG = document.getElementById('ballA');
   const ballBG = document.getElementById('ballB');
   const ballMG = document.getElementById('ballMerged');
@@ -697,12 +757,27 @@ function render() {
     s2.classList.add('error');
     s2.classList.remove('active');
     s2.querySelector('.step-result').innerHTML =
-      `<span class="red">能量不足，A无法到达此高度！</span>`;
+      `<span class="red">能量不足（最高可达 h = ${phys.maxH.toFixed(2)}m）</span>`;
+  }
+
+  // Show/hide collision section
+  const collisionSection = document.getElementById('collisionSection');
+  const shouldShowCollision = phys.atTop || !phys.canReachTop;
+  if (shouldShowCollision) {
+    collisionSection.style.display = 'flex';
+    // Scroll into view on first reveal
+    if (!collisionSection.dataset.revealed) {
+      collisionSection.dataset.revealed = '1';
+      setTimeout(() => collisionSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  } else {
+    collisionSection.style.display = 'none';
+    delete collisionSection.dataset.revealed;
   }
 
   // Step 3: collision (only when A reaches top)
   const s3 = document.getElementById('step3');
-  if (phys.atTop && phys.canReachTop) {
+  if (phys.atTop) {
     s3.classList.remove('error');
     s3.classList.add('active');
     s3.querySelector('.step-result').innerHTML =
@@ -711,7 +786,7 @@ function render() {
   } else if (!phys.canReachTop) {
     s3.classList.add('error');
     s3.classList.remove('active');
-    s3.querySelector('.step-result').innerHTML = `<span class="red">A无法到达顶部</span>`;
+    s3.querySelector('.step-result').innerHTML = `<span class="red">A无法到达顶部 — 试试 I ≥ ${phys.I_min.toFixed(1)} N·s</span>`;
   } else {
     s3.classList.remove('error', 'active');
     s3.querySelector('.step-result').innerHTML = `<span class="dim">拖动A到顶部触发碰撞...</span>`;
@@ -719,7 +794,7 @@ function render() {
 
   // Step 4: tension (only when A reaches top)
   const s4 = document.getElementById('step4');
-  if (phys.atTop && phys.canReachTop) {
+  if (phys.atTop) {
     s4.classList.remove('error');
     s4.classList.add('active');
     s4.querySelector('.step-result').innerHTML =
@@ -737,7 +812,7 @@ function render() {
   const ab = document.getElementById('answerBox');
   const a1 = ab.querySelector('[data-physics-value="answer1"]');
   const a2 = ab.querySelector('[data-physics-value="answer2"]');
-  if (phys.atTop && phys.canReachTop) {
+  if (phys.atTop) {
     ab.style.borderColor = '#ffd700';
     a1.innerHTML = `v<sub>A</sub> = ${phys.vA.toFixed(2)} m/s`;
     a2.innerHTML = `T = ${phys.T.toFixed(1)} N`;
@@ -756,12 +831,144 @@ function render() {
   document.querySelector('[data-physics-value="mA"]').textContent = `${params.mA.toFixed(2)} kg`;
   document.querySelector('[data-physics-value="mB"]').textContent = `${params.mB.toFixed(2)} kg`;
   document.querySelector('[data-physics-value="R"]').textContent = `${params.R.toFixed(2)} m`;
+
+  // Explore hint (Task 5)
+  const exploreHint = document.getElementById('exploreHint');
+  if (exploreHint) {
+    exploreHint.style.display = (atTop) ? 'block' : 'none';
+  }
+
+  // Collision pop animation (Task 2) — animate r attribute, not CSS transform
+  if (atTop && !prevAtTop) {
+    const mergedCircle = ballMG.querySelector('circle');
+    if (mergedCircle && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const baseR = 18;
+      const popR = 25;
+      const popDur = 300;
+      const popStart = performance.now();
+      function popFrame(now) {
+        const t = Math.min((now - popStart) / popDur, 1);
+        const r = t < 0.5
+          ? baseR + (popR - baseR) * (t * 2)
+          : popR - (popR - baseR) * ((t - 0.5) * 2);
+        const opacity = t < 0.5 ? 0.7 + 0.3 * (t * 2) : 1 - 0.3 * ((t - 0.5) * 2);
+        mergedCircle.setAttribute('r', r);
+        mergedCircle.setAttribute('fill-opacity', opacity);
+        if (t < 1) requestAnimationFrame(popFrame);
+        else { mergedCircle.setAttribute('r', baseR); mergedCircle.setAttribute('fill-opacity', '0.7'); }
+      }
+      requestAnimationFrame(popFrame);
+    }
+  }
+  prevAtTop = atTop;
+
+  // Update button states
+  updateButtons();
 }
 
-// Slider events
+// Button state management
+function updateButtons() {
+  const btnPlay = document.getElementById('btnPlay');
+  const btnReset = document.getElementById('btnReset');
+  if (!btnPlay || !btnReset) return;
+
+  // Reset enabled when ball is not at bottom
+  if (ballA_theta > 0.01) {
+    btnReset.classList.remove('dimmed');
+  } else {
+    btnReset.classList.add('dimmed');
+  }
+
+  // Play button label/style by state
+  if (animState === 'playing') {
+    btnPlay.textContent = '⏸ 暂停';
+    btnPlay.classList.add('playing');
+  } else if (animState === 'paused') {
+    btnPlay.textContent = '▶ 继续';
+    btnPlay.classList.remove('playing');
+  } else {
+    btnPlay.textContent = '▶ 播放';
+    btnPlay.classList.remove('playing');
+  }
+}
+
+// Play/Pause animation
+function togglePlay() {
+  if (animState === 'playing') {
+    // Pause
+    cancelAnimationFrame(animId);
+    animId = null;
+    animState = 'paused';
+    updateButtons();
+    return;
+  }
+
+  // If arrived, auto-reset first
+  if (animState === 'arrived') {
+    ballA_theta = 0;
+    prevAtTop = false;
+    render();
+  }
+
+  // Compute target theta
+  const phys = compute();
+  let targetTheta = Math.PI;
+  if (!phys.canReachTop) {
+    // Animate to max reachable height: h = v0²/(2g), theta = acos(1 - h/R)
+    const maxH = phys.v0 * phys.v0 / (2 * g);
+    const cosArg = 1 - maxH / params.R;
+    targetTheta = cosArg <= -1 ? Math.PI : Math.acos(Math.max(-1, cosArg));
+  }
+
+  // Start animation
+  animFrom = ballA_theta;
+  animStart = performance.now();
+  animState = 'playing';
+  const duration = 3000; // 3 seconds
+
+  function animFrame(now) {
+    if (animState !== 'playing') return;
+    let t = Math.min((now - animStart) / duration, 1);
+    // ease-in-out
+    t = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    ballA_theta = animFrom + (targetTheta - animFrom) * t;
+    render();
+    if (t < 1) {
+      animId = requestAnimationFrame(animFrame);
+    } else {
+      animState = 'arrived';
+      animId = null;
+      updateButtons();
+    }
+  }
+
+  animId = requestAnimationFrame(animFrame);
+  updateButtons();
+}
+
+// Reset to initial state
+function resetState() {
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  animState = 'idle';
+  ballA_theta = 0;
+  prevAtTop = false;
+  render();
+}
+
+// Button event listeners
+document.getElementById('btnPlay').addEventListener('click', togglePlay);
+document.getElementById('btnReset').addEventListener('click', resetState);
+
+// Slider events (auto-reset ball on any change)
 Object.keys(sliders).forEach(key => {
   sliders[key].addEventListener('input', (e) => {
     params[key] = parseFloat(e.target.value);
+    if (animId) cancelAnimationFrame(animId);
+    animId = null;
+    animState = 'idle';
+    ballA_theta = 0;
+    prevAtTop = false;
     render();
   });
 });
@@ -782,6 +989,9 @@ function startDrag(e) {
   if (!target) return;
   e.preventDefault();
   if (target.id === 'ballA') {
+    // Cancel any running animation (user takes over)
+    if (animId) { cancelAnimationFrame(animId); animId = null; }
+    animState = 'idle';
     dragging = 'A';
     document.querySelector('#ballA .glow-ring').style.animation = 'none';
   }
