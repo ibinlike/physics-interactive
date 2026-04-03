@@ -3,823 +3,155 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>半圆轨道碰撞 — 交互演示</title>
+<title>物理互动演示</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #1a1a2e;
+    background: #0f0f23;
     color: #e0e0e0;
-    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-    user-select: none;
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    padding: 0 20px;
   }
 
-  /* Layout */
-  .diagram-panel {
-    text-align: center;
-    padding: 8px;
-  }
-  .info-panel {
-    background: #16213e;
-    border-top: 1px solid #2a3a5c;
-    padding: 16px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  /* SVG — responsive via aspect-ratio */
-  .diagram-panel svg {
-    display: block;
-    width: 100%;
-    max-width: 560px;
-    height: auto;
-    aspect-ratio: 560 / 500;
+  .container {
+    max-width: 720px;
     margin: 0 auto;
+    padding: 60px 0 80px;
   }
 
-  /* Controls */
-  .slider-group {
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 8px;
+  }
+  header p {
+    font-size: 15px;
+    color: #8892b0;
+    line-height: 1.6;
+  }
+
+  .section-title {
+    font-size: 13px;
+    color: #64ffda;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  .demo-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .slider-row label {
-    min-width: 70px;
-    font-size: 13px;
-    color: #8892b0;
-  }
-  .slider-row input[type="range"] {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    background: #2a3a5c;
-    border-radius: 3px;
-    outline: none;
-    padding: 10px 0;
-    background-clip: content-box;
-  }
-  .slider-row input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--thumb-color, #64ffda);
-    cursor: pointer;
-    box-shadow: 0 0 6px var(--thumb-glow, rgba(100,255,218,0.4));
-  }
-  .slider-row input[type="range"]::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--thumb-color, #64ffda);
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 0 6px var(--thumb-glow, rgba(100,255,218,0.4));
-  }
-  .slider-row input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-  }
-  .slider-row .val {
-    min-width: 60px;
-    text-align: right;
-    font-size: 13px;
-    color: #ccd6f6;
-    font-family: "Courier New", monospace;
+    gap: 12px;
   }
 
-  /* Physics results */
-  .section-title {
-    font-size: 14px;
-    color: #64ffda;
-    border-bottom: 1px solid #2a3a5c;
-    padding-bottom: 4px;
-    margin-bottom: 4px;
-  }
-  .step {
+  .demo-card {
+    display: block;
     background: #1a1a2e;
-    border-radius: 8px;
-    padding: 12px 14px;
     border: 1px solid #2a3a5c;
-    transition: all 0.3s ease;
+    border-radius: 8px;
+    padding: 20px 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, background 0.2s;
   }
-  .step.active {
-    background: linear-gradient(135deg, rgba(100,255,218,0.06), rgba(100,255,218,0.02));
-    border-color: rgba(100,255,218,0.25);
-    box-shadow: 0 0 12px rgba(100,255,218,0.06);
+  .demo-card:hover {
+    border-color: #64ffda;
+    background: linear-gradient(135deg, rgba(100,255,218,0.04), rgba(100,255,218,0.01));
   }
-  .step.error {
-    background: linear-gradient(135deg, rgba(255,107,107,0.06), rgba(255,107,107,0.02));
-    border-color: rgba(255,107,107,0.25);
-  }
-  .step-label {
-    font-size: 12px;
-    color: #8892b0;
-    margin-bottom: 4px;
-  }
-  .step-formula {
-    font-size: 14px;
-    color: #ccd6f6;
-    line-height: 1.6;
-  }
-  .step-result {
-    font-size: 16px;
+
+  .demo-card .title {
+    font-size: 17px;
     font-weight: 600;
-    margin-top: 4px;
+    color: #f8fafc;
+    margin-bottom: 6px;
   }
-  .gold { color: #ffd700; }
-  .teal { color: #64ffda; }
-  .red { color: #ff6b6b; }
-  .dim { color: #8892b0; }
-
-  /* Answer box */
-  .answer-box {
-    background: linear-gradient(135deg, #1a1a2e, #16213e);
-    border: 2px solid #ffd700;
-    border-radius: 8px;
-    padding: 16px;
-    text-align: center;
+  .demo-card .desc {
+    font-size: 14px;
+    color: #8892b0;
+    line-height: 1.5;
+    margin-bottom: 10px;
   }
-  .answer-box .label { font-size: 13px; color: #8892b0; }
-  .answer-box .value { font-size: 22px; color: #ffd700; font-weight: 700; margin-top: 4px; }
-
-  /* Tooltip */
-  .hint {
-    font-size: 15px;
-    color: #ccd6f6;
-    text-align: center;
-    padding: 12px 16px;
+  .demo-card .tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .demo-card .tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
     background: rgba(100,255,218,0.08);
+    color: #64ffda;
+  }
+  .demo-card .tag.orange {
+    background: rgba(255,159,67,0.08);
+    color: #ff9f43;
+  }
+  .demo-card .tag.blue {
+    background: rgba(74,144,217,0.08);
+    color: #4a90d9;
+  }
+
+  .coming-soon {
+    text-align: center;
+    padding: 32px;
+    color: #5a6a8a;
+    font-size: 14px;
+    border: 1px dashed #2a3a5c;
     border-radius: 8px;
-    border: 1px solid rgba(100,255,218,0.15);
-    line-height: 1.6;
+    margin-top: 12px;
   }
 
-  /* Draggable cursor */
-  .draggable { cursor: grab; }
-  .draggable:active { cursor: grabbing; }
-
-  @keyframes pulse-glow {
-    0%, 100% { r: 22; stroke-opacity: 0.3; }
-    50% { r: 26; stroke-opacity: 0.6; }
-  }
-  #ballA .glow-ring {
-    animation: pulse-glow 2s ease-in-out infinite;
-    fill: none;
-    stroke: #64ffda;
-    stroke-width: 2;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #ballA .glow-ring { animation: none; stroke-opacity: 0.4; r: 24; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .step, .answer-box, .slider-row input[type="range"]::-webkit-slider-thumb {
-      transition: none;
-    }
-  }
-
-  /* Desktop: side-by-side layout */
-  @media (min-width: 901px) {
-    body {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
-    .diagram-panel {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .info-panel {
-      width: 380px;
-      border-top: none;
-      border-left: 1px solid #2a3a5c;
-      padding: 24px 20px;
-      overflow-y: auto;
-    }
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid #1e293b;
+    font-size: 12px;
+    color: #5a6a8a;
   }
 </style>
 </head>
 <body>
 
-<div class="diagram-panel">
-  <svg id="scene" width="560" height="500" viewBox="0 0 560 500" font-family="PingFang SC, Microsoft YaHei, sans-serif">
-    <defs>
-      <marker id="arrowT" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-        <path d="M0,0 L8,3 L0,6" fill="#ff6b6b" />
-      </marker>
-      <marker id="arrowW" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-        <path d="M0,0 L8,3 L0,6" fill="#8892b0" />
-      </marker>
-      <marker id="arrowV" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-        <path d="M0,0 L8,3 L0,6" fill="#64ffda" />
-      </marker>
-      <marker id="arrowI" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-        <path d="M0,0 L8,3 L0,6" fill="#ffd700" />
-      </marker>
-    </defs>
+<div class="container">
+  <header>
+    <h1>物理互动演示</h1>
+    <p>高中物理题目的交互式模拟 — 拖动参数，观察物理量实时变化</p>
+  </header>
 
-    <!-- Track glow -->
-    <path id="trackGlow" fill="none" stroke="#64ffda" stroke-opacity="0.1" stroke-width="16" />
-    <!-- Track -->
-    <path id="track" fill="none" stroke="#64ffda" stroke-width="3" stroke-opacity="0.85" />
+  <div class="section-title">力学</div>
 
-    <!-- Ground -->
-    <g id="ground"></g>
+  <div class="demo-list">
+    <a class="demo-card" href="demos/ban-yuan-gui-dao/">
+      <div class="title">半圆轨道碰撞</div>
+      <div class="desc">
+        小球A沿光滑半圆轨道上升，在顶部与悬挂的小球B发生完全非弹性碰撞。
+        拖动球A观察能量守恒过程，到达顶部触发碰撞计算。
+      </div>
+      <div class="tags">
+        <span class="tag">能量守恒</span>
+        <span class="tag">动量守恒</span>
+        <span class="tag orange">碰撞</span>
+        <span class="tag blue">圆周运动</span>
+      </div>
+    </a>
 
-    <!-- Dashed center line -->
-    <line id="centerLine" stroke="#5a6a8a" stroke-width="1" stroke-dasharray="6,4" />
+    <div class="coming-soon">更多题目即将添加...</div>
+  </div>
 
-    <!-- String -->
-    <line id="string" stroke="#ccd6f6" stroke-width="2" />
-
-    <!-- Pivot bracket -->
-    <g id="pivot">
-      <polygon fill="#ccd6f6" fill-opacity="0.3" stroke="#ccd6f6" stroke-width="1.5" />
-      <line stroke="#ccd6f6" stroke-width="2" />
-    </g>
-
-    <!-- R annotation -->
-    <g id="rAnnot" fill="none" stroke="#5a6a8a" stroke-width="1">
-      <line id="rLine" />
-      <text id="rLabel" fill="#8892b0" font-size="14" text-anchor="end" font-family="PingFang SC, Microsoft YaHei, sans-serif">R</text>
-    </g>
-
-    <!-- Height annotation -->
-    <g id="hAnnot" fill="none" stroke="#ffd700" stroke-width="1" stroke-dasharray="4,3" opacity="0.6">
-      <line id="hLine" />
-      <text id="hLabel" fill="#ffd700" font-size="13" text-anchor="start" opacity="0.8" font-family="PingFang SC, Microsoft YaHei, sans-serif"></text>
-    </g>
-
-    <!-- Impulse arrow -->
-    <line id="impulseArrow" stroke="#ffd700" stroke-width="2.5" marker-end="url(#arrowI)" />
-    <text id="impulseLabel" fill="#ffd700" font-size="13" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif"></text>
-
-    <!-- Velocity arrow at A -->
-    <line id="vArrow" stroke="#64ffda" stroke-width="2" marker-end="url(#arrowV)" opacity="0" />
-    <text id="vLabel" fill="#64ffda" font-size="12" text-anchor="middle" opacity="0" font-family="Courier New, monospace"></text>
-
-    <!-- Force arrows at top (after collision) -->
-    <line id="forceT" stroke="#ff6b6b" stroke-width="2.5" marker-end="url(#arrowT)" opacity="0" />
-    <text id="forceTLabel" fill="#ff6b6b" font-size="12" text-anchor="start" opacity="0" font-family="PingFang SC, Microsoft YaHei, sans-serif"></text>
-    <line id="forceW" stroke="#8892b0" stroke-width="2" marker-end="url(#arrowW)" opacity="0" />
-    <text id="forceWLabel" fill="#8892b0" font-size="12" text-anchor="start" opacity="0" font-family="PingFang SC, Microsoft YaHei, sans-serif"></text>
-
-    <!-- Ball B -->
-    <g id="ballB" data-draggable="true" class="draggable">
-      <circle r="14" fill="#ff6b6b" fill-opacity="0.8" stroke="#ff6b6b" stroke-width="1.5" />
-      <circle r="14" fill="transparent" stroke="white" stroke-opacity="0.2" stroke-width="1" />
-      <text fill="white" font-size="13" text-anchor="middle" dy="4" font-weight="600" font-family="PingFang SC, sans-serif">B</text>
-    </g>
-
-    <!-- Ball A (draggable along track) -->
-    <g id="ballA" data-draggable="true" class="draggable">
-      <circle class="glow-ring" r="24" fill="none" stroke="#64ffda" stroke-width="2" stroke-opacity="0.3" />
-      <circle r="16" fill="#4a90d9" fill-opacity="0.85" stroke="#4a90d9" stroke-width="1.5" />
-      <circle r="16" fill="transparent" stroke="white" stroke-opacity="0.25" stroke-width="1" />
-      <text fill="white" font-size="14" text-anchor="middle" dy="4.5" font-weight="600" font-family="PingFang SC, sans-serif">A</text>
-    </g>
-
-    <!-- Merged ball (shown after collision) — pointer-events:none so drag still works -->
-    <g id="ballMerged" opacity="0" pointer-events="none">
-      <circle r="18" fill="#ffd700" fill-opacity="0.7" stroke="#ffd700" stroke-width="1.5" />
-      <text fill="#1a1a2e" font-size="12" text-anchor="middle" dy="4" font-weight="700" font-family="PingFang SC, sans-serif">A+B</text>
-    </g>
-
-    <!-- Energy bars (bottom-right of diagram) -->
-    <g id="energyBars" transform="translate(420, 340)" opacity="0">
-      <text fill="#8892b0" font-size="13" x="0" y="-8" font-family="PingFang SC, sans-serif">能量</text>
-      <!-- Total energy outline -->
-      <rect x="0" y="0" width="24" height="120" fill="none" stroke="#5a6a8a" stroke-width="1" rx="3" />
-      <!-- PE bar (fills from bottom) -->
-      <rect id="barPE" x="2" width="20" fill="#ff9f43" fill-opacity="0.8" rx="2" />
-      <!-- KE bar (fills from bottom, stacked on PE) -->
-      <rect id="barKE" x="2" width="20" fill="#4a90d9" fill-opacity="0.8" rx="2" />
-      <!-- Labels -->
-      <text fill="#4a90d9" font-size="12" x="30" font-family="PingFang SC, sans-serif" id="labelKE">动能</text>
-      <text fill="#ff9f43" font-size="12" x="30" font-family="PingFang SC, sans-serif" id="labelPE">势能</text>
-    </g>
-
-    <!-- Velocity arrow following A along track -->
-    <line id="vFollowArrow" stroke="#64ffda" stroke-width="2.5" marker-end="url(#arrowV)" opacity="0" />
-    <text id="vFollowLabel" fill="#64ffda" font-size="12" text-anchor="middle" opacity="0" font-family="Courier New, monospace"></text>
-  </svg>
+  <footer>
+    从考试题截图到互动模拟 — 让物理看得见、摸得着
+  </footer>
 </div>
 
-<div class="info-panel">
-  <div style="text-align:center; font-size:18px; font-weight:700; color:#ccd6f6;">
-    半圆轨道碰撞
-  </div>
-
-  <div class="hint">
-    拖动球A沿轨道，观察能量如何转化<br>
-    拖到顶部触发碰撞，显示完整解答
-  </div>
-
-  <div class="slider-group">
-    <div class="section-title">参数设置</div>
-    <div class="slider-row">
-      <label style="color:#ffd700">冲量 I</label>
-      <input type="range" id="sliderI" min="0.2" max="4.0" step="0.1" value="1.8" style="--thumb-color:#ffd700;--thumb-glow:rgba(255,215,0,0.4)">
-      <span class="val" style="color:#ffd700" data-physics-value="I">1.8 N·s</span>
-    </div>
-    <div class="slider-row">
-      <label style="color:#4a90d9">质量 m<sub>A</sub></label>
-      <input type="range" id="sliderMA" min="0.1" max="1.0" step="0.05" value="0.3" style="--thumb-color:#4a90d9;--thumb-glow:rgba(74,144,217,0.4)">
-      <span class="val" style="color:#4a90d9" data-physics-value="mA">0.30 kg</span>
-    </div>
-    <div class="slider-row">
-      <label style="color:#ff6b6b">质量 m<sub>B</sub></label>
-      <input type="range" id="sliderMB" min="0.05" max="0.5" step="0.05" value="0.1" style="--thumb-color:#ff6b6b;--thumb-glow:rgba(255,107,107,0.4)">
-      <span class="val" style="color:#ff6b6b" data-physics-value="mB">0.10 kg</span>
-    </div>
-    <div class="slider-row">
-      <label style="color:#64ffda">半径 R</label>
-      <input type="range" id="sliderR" min="0.2" max="1.0" step="0.05" value="0.5" style="--thumb-color:#64ffda;--thumb-glow:rgba(100,255,218,0.4)">
-      <span class="val" style="color:#64ffda" data-physics-value="R">0.50 m</span>
-    </div>
-  </div>
-
-  <!-- Step 1: Impulse -->
-  <div class="step active" id="step1">
-    <div class="step-label">① 冲量 → 初速度</div>
-    <div class="step-formula">I = m<sub>A</sub> · v₀</div>
-    <div class="step-result" data-physics-value="v0"></div>
-  </div>
-
-  <!-- Step 2: Energy at current position -->
-  <div class="step active" id="step2">
-    <div class="step-label">② 能量守恒（拖动A观察）</div>
-    <div class="step-formula">½mv₀² = ½mv² + mgh</div>
-    <div class="step-result" data-physics-value="vA"></div>
-  </div>
-
-  <!-- Energy bar (visual companion to step 2) -->
-  <div id="energyBarHTML" style="display:flex; align-items:center; gap:12px; padding:4px 0;">
-    <div style="position:relative; width:100%; height:20px; background:#2a3a5c; border-radius:4px; overflow:hidden;">
-      <div id="barKE_html" style="position:absolute; left:0; top:0; height:100%; background:#4a90d9; border-radius:4px 0 0 4px; transition:width 0.15s;"></div>
-      <div id="barPE_html" style="position:absolute; right:0; top:0; height:100%; background:#ff9f43; border-radius:0 4px 4px 0; transition:width 0.15s;"></div>
-    </div>
-  </div>
-  <div style="display:flex; justify-content:space-between; font-size:12px; padding:0 2px;">
-    <span style="color:#4a90d9;" id="labelKE_html">动能 5.4J</span>
-    <span style="color:#8892b0;" id="labelTotal_html">总能 5.4J</span>
-    <span style="color:#ff9f43;" id="labelPE_html">势能 0.0J</span>
-  </div>
-
-  <!-- Step 3: Collision -->
-  <div class="step active" id="step3">
-    <div class="step-label">③ 完全非弹性碰撞</div>
-    <div class="step-formula">m<sub>A</sub>v<sub>A</sub> = (m<sub>A</sub>+m<sub>B</sub>)v'</div>
-    <div class="step-result" data-physics-value="vPrime"></div>
-  </div>
-
-  <!-- Step 4: Tension -->
-  <div class="step active" id="step4">
-    <div class="step-label">④ 最低点 → 绳拉力</div>
-    <div class="step-formula">T - (m<sub>A</sub>+m<sub>B</sub>)g = (m<sub>A</sub>+m<sub>B</sub>)v'²/R</div>
-    <div class="step-result" data-physics-value="T"></div>
-  </div>
-
-  <!-- Answers -->
-  <div class="answer-box" id="answerBox">
-    <div class="label">(1) 碰撞瞬间 A 的速度</div>
-    <div class="value" data-physics-value="answer1"></div>
-    <div class="label" style="margin-top:10px">(2) 碰后绳的拉力</div>
-    <div class="value" data-physics-value="answer2"></div>
-  </div>
-</div>
-
-<script>
-const g = 10; // m/s²
-
-// SVG coordinate system
-const W = 560, H = 500;
-const CX = 280, CY = 230; // track center in SVG coords
-// Fix #4: Visual radius scales with R parameter (base 140px at R=0.5)
-function getVR() { return Math.max(80, Math.min(200, params.R * 280)); }
-
-// Convert: track bottom is at ground level
-// Track center: (CX, CY)
-// Bottom of track: (CX, CY + VR)
-// Top of track: (CX, CY - VR)
-
-function getTrackPoint(theta) {
-  const VR = getVR();
-  return {
-    x: CX - VR * Math.sin(theta),  // LEFT side arc (matches original exam diagram)
-    y: CY + VR * Math.cos(theta)
-  };
-}
-
-// State
-let params = { I: 1.8, mA: 0.3, mB: 0.1, R: 0.5 };
-let ballA_theta = 0; // A starts at bottom
-let dragging = null;
-
-// DOM refs
-const svg = document.getElementById('scene');
-const sliders = {
-  I: document.getElementById('sliderI'),
-  mA: document.getElementById('sliderMA'),
-  mB: document.getElementById('sliderMB'),
-  R: document.getElementById('sliderR'),
-};
-
-// Physics computation
-function compute() {
-  const { I, mA, mB, R } = params;
-  const M = mA + mB;
-
-  // Step 1: Impulse → v₀
-  const v0 = I / mA;
-
-  // A's current position on journey (theta: 0=bottom, PI=top)
-  const hCurrent = R * (1 - Math.cos(ballA_theta)); // height at current position
-  const totalE = 0.5 * mA * v0 * v0; // total mechanical energy (conserved)
-  const PE = mA * g * hCurrent;
-  const KE = totalE - PE;
-  const canBeHere = KE >= 0; // does A have enough energy to reach this position?
-  const vCurrent = canBeHere ? Math.sqrt(2 * KE / mA) : 0;
-
-  // At the top (theta=PI): full solution
-  const hTop = 2 * R;
-  const vA_sq = v0 * v0 - 2 * g * hTop;
-  const canReachTop = vA_sq >= 0;
-  const vA = canReachTop ? Math.sqrt(vA_sq) : 0;
-  const vPrime = canReachTop ? (mA * vA) / M : 0;
-  const T = canReachTop ? M * g + M * vPrime * vPrime / R : 0;
-
-  // Is A at/near the top?
-  const atTop = ballA_theta > Math.PI * 0.95;
-
-  return { v0, vCurrent, KE, PE, totalE, hCurrent, canBeHere, vA, vA_sq, vPrime, T, canReachTop, atTop };
-}
-
-// Render everything
-function render() {
-  const VR = getVR();
-  const phys = compute();
-  const bot = getTrackPoint(0);
-  const top = getTrackPoint(Math.PI);
-  const posA = getTrackPoint(ballA_theta);
-  const pivotY = top.y - VR; // string length = R visually = VR pixels
-
-  // Track arc (left semicircle from bottom to top)
-  const trackPath = `M ${bot.x} ${bot.y} A ${VR} ${VR} 0 1 1 ${top.x} ${top.y}`;
-  document.getElementById('track').setAttribute('d', trackPath);
-  document.getElementById('trackGlow').setAttribute('d', trackPath);
-
-  // Ground
-  const gndG = document.getElementById('ground');
-  gndG.innerHTML = '';
-  const gndY = bot.y;
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line.setAttribute('x1', bot.x - 80); line.setAttribute('y1', gndY);
-  line.setAttribute('x2', bot.x + 60); line.setAttribute('y2', gndY);
-  line.setAttribute('stroke', '#5a6a8a'); line.setAttribute('stroke-width', '2');
-  gndG.appendChild(line);
-  for (let i = 0; i < 8; i++) {
-    const hx = bot.x - 70 + i * 18;
-    const h = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    h.setAttribute('x1', hx); h.setAttribute('y1', gndY);
-    h.setAttribute('x2', hx - 6); h.setAttribute('y2', gndY + 8);
-    h.setAttribute('stroke', '#5a6a8a'); h.setAttribute('stroke-width', '1');
-    gndG.appendChild(h);
-  }
-
-  // Center dashed line
-  const cl = document.getElementById('centerLine');
-  cl.setAttribute('x1', top.x); cl.setAttribute('y1', pivotY - 20);
-  cl.setAttribute('x2', bot.x); cl.setAttribute('y2', bot.y);
-
-  // String
-  const str = document.getElementById('string');
-  str.setAttribute('x1', top.x); str.setAttribute('y1', pivotY);
-  str.setAttribute('x2', top.x); str.setAttribute('y2', top.y);
-
-  // Pivot
-  const pivG = document.getElementById('pivot');
-  const bSize = 12;
-  pivG.querySelector('polygon').setAttribute('points',
-    `${top.x},${pivotY - bSize} ${top.x - bSize},${pivotY} ${top.x + bSize},${pivotY}`
-  );
-  const pivLine = pivG.querySelector('line');
-  pivLine.setAttribute('x1', top.x - 25); pivLine.setAttribute('y1', pivotY - bSize);
-  pivLine.setAttribute('x2', top.x + 25); pivLine.setAttribute('y2', pivotY - bSize);
-
-  // R annotation (left side, away from height line)
-  const rLine = document.getElementById('rLine');
-  const rLineX = CX - VR - 24;
-  rLine.setAttribute('x1', rLineX); rLine.setAttribute('y1', CY);
-  rLine.setAttribute('x2', rLineX); rLine.setAttribute('y2', CY + VR);
-  const rLabel = document.getElementById('rLabel');
-  rLabel.setAttribute('x', rLineX - 6);
-  rLabel.setAttribute('y', CY + VR / 2 + 5);
-  rLabel.setAttribute('text-anchor', 'end');
-  rLabel.textContent = `R=${params.R}m`;
-
-  // Height annotation line (no text — h value shown in panel step 2)
-  const hLine = document.getElementById('hLine');
-  const hLabel = document.getElementById('hLabel');
-  hLabel.setAttribute('opacity', '0'); // always hidden — value in panel
-  if (ballA_theta > 0.05) {
-    document.getElementById('hAnnot').setAttribute('opacity', '0.4');
-    hLine.setAttribute('x1', CX + 30); hLine.setAttribute('y1', bot.y);
-    hLine.setAttribute('x2', CX + 30); hLine.setAttribute('y2', posA.y);
-  } else {
-    document.getElementById('hAnnot').setAttribute('opacity', '0');
-  }
-
-  // Ball A, B, and merged ball — show merged at top (collision state)
-  const atTop = phys.atTop && phys.canReachTop;
-  const ballAG = document.getElementById('ballA');
-  const ballBG = document.getElementById('ballB');
-  const ballMG = document.getElementById('ballMerged');
-  const aOffX = 0, aOffY = 0;
-
-  if (atTop) {
-    // Collision: visually hide A/B, show merged ball. A stays positioned for drag events.
-    ballAG.setAttribute('transform', `translate(${top.x}, ${top.y})`);
-    ballAG.setAttribute('opacity', '0.01'); // nearly invisible but still draggable
-    ballBG.setAttribute('opacity', '0');
-    ballMG.setAttribute('opacity', '1');
-    ballMG.setAttribute('transform', `translate(${top.x}, ${top.y})`);
-  } else {
-    // Normal: show A at track position, show B at top
-    ballAG.setAttribute('opacity', '1');
-    ballAG.setAttribute('transform', `translate(${posA.x}, ${posA.y})`);
-    ballBG.setAttribute('opacity', '1');
-    ballBG.setAttribute('transform', `translate(${top.x}, ${top.y})`);
-    ballMG.setAttribute('opacity', '0');
-  }
-
-  // Impulse arrow (only at bottom) — arrow only, no text label (value shown in panel step 1)
-  const iArr = document.getElementById('impulseArrow');
-  const iLbl = document.getElementById('impulseLabel');
-  iLbl.setAttribute('opacity', '0'); // always hidden — value in panel
-  if (ballA_theta < 0.02) {
-    const len = Math.min(params.I * 25, 80);
-    iArr.setAttribute('x1', posA.x + len + 22); iArr.setAttribute('y1', posA.y);
-    iArr.setAttribute('x2', posA.x + 22); iArr.setAttribute('y2', posA.y);
-    iArr.setAttribute('opacity', '0.6');
-  } else {
-    iArr.setAttribute('opacity', '0');
-  }
-
-  // Velocity arrow at bottom (v₀) — arrow only, no text label
-  const vArr = document.getElementById('vArrow');
-  const vLbl = document.getElementById('vLabel');
-  vLbl.setAttribute('opacity', '0'); // always hidden — value in panel
-  if (ballA_theta < 0.02 && phys.v0 > 0.5) {
-    const vLen = Math.min(phys.v0 * 8, 60);
-    vArr.setAttribute('x1', posA.x - 22); vArr.setAttribute('y1', posA.y);
-    vArr.setAttribute('x2', posA.x - 22 - vLen); vArr.setAttribute('y2', posA.y);
-    vArr.setAttribute('opacity', '0.5');
-  } else {
-    vArr.setAttribute('opacity', '0');
-  }
-
-  // Velocity arrow following A along the track — arrow only, no text label
-  const vfArr = document.getElementById('vFollowArrow');
-  const vfLbl = document.getElementById('vFollowLabel');
-  vfLbl.setAttribute('opacity', '0'); // always hidden — value in panel step 2
-  if (ballA_theta > 0.05 && phys.canBeHere && phys.vCurrent > 0.3) {
-    const tx = -Math.cos(ballA_theta);
-    const ty = -Math.sin(ballA_theta);
-    const vLen = Math.min(phys.vCurrent * 8, 60);
-    const ax = posA.x + aOffX, ay = posA.y + aOffY;
-    vfArr.setAttribute('x1', ax); vfArr.setAttribute('y1', ay);
-    vfArr.setAttribute('x2', ax + tx * vLen); vfArr.setAttribute('y2', ay + ty * vLen);
-    vfArr.setAttribute('opacity', '0.6');
-  } else {
-    vfArr.setAttribute('opacity', '0');
-  }
-
-  // Energy bars with label anti-overlap
-  const barH = 120;
-  const maxE = phys.totalE > 0 ? phys.totalE : 1;
-  const keH = Math.max(0, (phys.KE / maxE) * barH);
-  const peH = Math.max(0, (phys.PE / maxE) * barH);
-  const barKE = document.getElementById('barKE');
-  const barPE = document.getElementById('barPE');
-  barPE.setAttribute('y', barH - peH); barPE.setAttribute('height', Math.max(0, peH));
-  barKE.setAttribute('y', barH - peH - keH); barKE.setAttribute('height', Math.max(0, keH));
-  // Label positions with minimum 16px gap to prevent overlap
-  let keLabY = barH - peH - keH / 2 + 4;
-  let peLabY = barH - peH / 2 + 4;
-  if (Math.abs(keLabY - peLabY) < 16) {
-    const mid = (keLabY + peLabY) / 2;
-    keLabY = mid - 9;
-    peLabY = mid + 9;
-  }
-  const labelKE = document.getElementById('labelKE');
-  const labelPE = document.getElementById('labelPE');
-  labelKE.setAttribute('y', keLabY);
-  labelKE.textContent = `动能 ${phys.KE.toFixed(1)}J`;
-  labelPE.setAttribute('y', peLabY);
-  labelPE.textContent = `势能 ${phys.PE.toFixed(1)}J`;
-  // Hide labels for near-zero values to reduce clutter
-  labelKE.setAttribute('opacity', phys.KE > 0.05 ? '1' : '0.3');
-  labelPE.setAttribute('opacity', phys.PE > 0.05 ? '1' : '0.3');
-
-  // HTML energy bar in info panel
-  const kePercent = phys.totalE > 0 ? (phys.KE / phys.totalE) * 100 : 0;
-  const pePercent = phys.totalE > 0 ? (phys.PE / phys.totalE) * 100 : 0;
-  const keBar = document.getElementById('barKE_html');
-  const peBar = document.getElementById('barPE_html');
-  if (keBar) keBar.style.width = kePercent + '%';
-  if (peBar) peBar.style.width = pePercent + '%';
-  const lke = document.getElementById('labelKE_html');
-  const lpe = document.getElementById('labelPE_html');
-  const ltot = document.getElementById('labelTotal_html');
-  if (lke) lke.textContent = `动能 ${phys.KE.toFixed(1)}J`;
-  if (lpe) lpe.textContent = `势能 ${phys.PE.toFixed(1)}J`;
-  if (ltot) ltot.textContent = `总能 ${phys.totalE.toFixed(1)}J`;
-
-  // Force arrows at top (only when collision state)
-  const showForces = atTop;
-  const fT = document.getElementById('forceT');
-  const fTL = document.getElementById('forceTLabel');
-  const fW = document.getElementById('forceW');
-  const fWL = document.getElementById('forceWLabel');
-  if (showForces) {
-    const M = params.mA + params.mB;
-    const tLen = Math.min(phys.T * 3, 100);
-    const wLen = Math.min(M * g * 3, 60);
-    // Arrows offset 24px right of center to clear the merged ball
-    const fx = top.x + 24;
-    fT.setAttribute('x1', fx); fT.setAttribute('y1', top.y);
-    fT.setAttribute('x2', fx); fT.setAttribute('y2', top.y - tLen);
-    fT.setAttribute('opacity', '0.85');
-    fTL.setAttribute('x', fx + 10); fTL.setAttribute('y', top.y - tLen / 2);
-    fTL.textContent = `T=${phys.T.toFixed(1)}N`;
-    fTL.setAttribute('opacity', '0.85');
-    fW.setAttribute('x1', fx); fW.setAttribute('y1', top.y);
-    fW.setAttribute('x2', fx); fW.setAttribute('y2', top.y + wLen);
-    fW.setAttribute('opacity', '0.7');
-    fWL.setAttribute('x', fx + 10); fWL.setAttribute('y', top.y + wLen / 2);
-    fWL.textContent = `mg=${(M * g).toFixed(1)}N`;
-    fWL.setAttribute('opacity', '0.7');
-  } else {
-    fT.setAttribute('opacity', '0');
-    fTL.setAttribute('opacity', '0');
-    fW.setAttribute('opacity', '0');
-    fWL.setAttribute('opacity', '0');
-  }
-
-  // Update info panel
-  // Step 1: always shown
-  const s1 = document.getElementById('step1');
-  s1.querySelector('.step-result').innerHTML =
-    `<span class="teal">v₀ = ${params.I} / ${params.mA} = </span><span class="gold">${phys.v0.toFixed(1)} m/s</span>`;
-
-  // Step 2: energy at current position (updates as A is dragged)
-  const s2 = document.getElementById('step2');
-  if (phys.canBeHere) {
-    s2.classList.remove('error');
-    s2.classList.add('active');
-    s2.querySelector('.step-result').innerHTML =
-      `<span class="dim">h = ${phys.hCurrent.toFixed(2)}m　</span>` +
-      `<span class="teal">v = ${phys.vCurrent.toFixed(2)} m/s</span><br>` +
-      `<span style="color:#4a90d9">动能 ${phys.KE.toFixed(1)}J</span>` +
-      `<span class="dim"> + </span>` +
-      `<span style="color:#ff9f43">势能 ${phys.PE.toFixed(1)}J</span>` +
-      `<span class="dim"> = ${phys.totalE.toFixed(1)}J</span>`;
-  } else {
-    s2.classList.add('error');
-    s2.classList.remove('active');
-    s2.querySelector('.step-result').innerHTML =
-      `<span class="red">能量不足，A无法到达此高度！</span>`;
-  }
-
-  // Step 3: collision (only when A reaches top)
-  const s3 = document.getElementById('step3');
-  if (phys.atTop && phys.canReachTop) {
-    s3.classList.remove('error');
-    s3.classList.add('active');
-    s3.querySelector('.step-result').innerHTML =
-      `<span class="teal">v<sub>A</sub> = ${phys.vA.toFixed(2)} m/s（到达顶部）</span><br>` +
-      `<span class="teal">v' = ${params.mA}×${phys.vA.toFixed(2)} / ${(params.mA + params.mB).toFixed(2)} = </span><span class="gold">${phys.vPrime.toFixed(2)} m/s</span>`;
-  } else if (!phys.canReachTop) {
-    s3.classList.add('error');
-    s3.classList.remove('active');
-    s3.querySelector('.step-result').innerHTML = `<span class="red">A无法到达顶部</span>`;
-  } else {
-    s3.classList.remove('error', 'active');
-    s3.querySelector('.step-result').innerHTML = `<span class="dim">拖动A到顶部触发碰撞...</span>`;
-  }
-
-  // Step 4: tension (only when A reaches top)
-  const s4 = document.getElementById('step4');
-  if (phys.atTop && phys.canReachTop) {
-    s4.classList.remove('error');
-    s4.classList.add('active');
-    s4.querySelector('.step-result').innerHTML =
-      `<span class="teal">T = ${(params.mA + params.mB).toFixed(2)}×(${g} + ${phys.vPrime.toFixed(2)}²/${params.R}) = </span><span class="gold">${phys.T.toFixed(1)} N</span>`;
-  } else if (!phys.canReachTop) {
-    s4.classList.add('error');
-    s4.classList.remove('active');
-    s4.querySelector('.step-result').innerHTML = `<span class="dim">—</span>`;
-  } else {
-    s4.classList.remove('error', 'active');
-    s4.querySelector('.step-result').innerHTML = `<span class="dim">拖动A到顶部...</span>`;
-  }
-
-  // Answers
-  const ab = document.getElementById('answerBox');
-  const a1 = ab.querySelector('[data-physics-value="answer1"]');
-  const a2 = ab.querySelector('[data-physics-value="answer2"]');
-  if (phys.atTop && phys.canReachTop) {
-    ab.style.borderColor = '#ffd700';
-    a1.innerHTML = `v<sub>A</sub> = ${phys.vA.toFixed(2)} m/s`;
-    a2.innerHTML = `T = ${phys.T.toFixed(1)} N`;
-  } else if (!phys.canReachTop) {
-    ab.style.borderColor = '#ff6b6b';
-    a1.innerHTML = `<span class="red">球A无法到达顶部</span>`;
-    a2.innerHTML = `<span class="dim">—</span>`;
-  } else {
-    ab.style.borderColor = '#2a3a5c';
-    a1.innerHTML = `<span class="dim">拖动A到顶部...</span>`;
-    a2.innerHTML = `<span class="dim">—</span>`;
-  }
-
-  // Update slider displays
-  document.querySelector('[data-physics-value="I"]').textContent = `${params.I.toFixed(1)} N·s`;
-  document.querySelector('[data-physics-value="mA"]').textContent = `${params.mA.toFixed(2)} kg`;
-  document.querySelector('[data-physics-value="mB"]').textContent = `${params.mB.toFixed(2)} kg`;
-  document.querySelector('[data-physics-value="R"]').textContent = `${params.R.toFixed(2)} m`;
-}
-
-// Slider events
-Object.keys(sliders).forEach(key => {
-  sliders[key].addEventListener('input', (e) => {
-    params[key] = parseFloat(e.target.value);
-    render();
-  });
-});
-
-// Drag ball A along track
-function getSvgPoint(e) {
-  const rect = svg.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return {
-    x: (clientX - rect.left) * (W / rect.width),
-    y: (clientY - rect.top) * (H / rect.height),
-  };
-}
-
-function startDrag(e) {
-  const target = e.target.closest('[data-draggable]');
-  if (!target) return;
-  e.preventDefault();
-  if (target.id === 'ballA') {
-    dragging = 'A';
-    document.querySelector('#ballA .glow-ring').style.animation = 'none';
-  }
-}
-
-function moveDrag(e) {
-  if (!dragging) return;
-  e.preventDefault();
-  const p = getSvgPoint(e);
-
-  if (dragging === 'A') {
-    // Map vertical mouse position to track progress: drag up = A moves up
-    const VR = getVR();
-    const botY = CY + VR;  // bottom of track (theta=0)
-    const topY = CY - VR;  // top of track (theta=PI)
-    const t = (botY - p.y) / (botY - topY); // 0 at bottom, 1 at top
-    ballA_theta = Math.max(0, Math.min(Math.PI, t * Math.PI));
-    render();
-  }
-}
-
-function endDrag() {
-  dragging = null;
-  const ring = document.querySelector('#ballA .glow-ring');
-  if (ring) ring.style.animation = '';
-}
-
-// Event listeners
-svg.addEventListener('mousedown', startDrag);
-svg.addEventListener('mousemove', moveDrag);
-svg.addEventListener('mouseup', endDrag);
-svg.addEventListener('mouseleave', endDrag);
-svg.addEventListener('touchstart', startDrag, { passive: false });
-svg.addEventListener('touchmove', moveDrag, { passive: false });
-svg.addEventListener('touchend', endDrag);
-
-// Initial render
-render();
-</script>
 </body>
 </html>
